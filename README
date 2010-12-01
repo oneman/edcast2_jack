@@ -1,0 +1,12 @@
+edcast_jack special edition!
+
+
+features removed: windows support, resampling support, metadata support
+
+features added: 24 bit flac support
+
+features to come: correct flushing of ogg packets to prevent buildup of silence in pages
+
+minor changes: correct printing of server port number, removal of depricated jack call
+
+
