@@ -173,6 +173,8 @@ static struct wavhead   wav_header;
 
 // Global variables....gotta love em... (for shizzle... -drr)
 typedef struct {
+	ogg_int64_t		LastFlushSamples;
+	int		SamplesSinceFlush;
 	int		flacBitDepth;
 	long		currentSamplerate;
 	int		currentBitrate;

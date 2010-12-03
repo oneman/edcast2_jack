@@ -1655,20 +1655,31 @@ int ogg_encode_dataout(edcastGlobals *g)
 			int eos = 0;
 
 			while(!eos) {
-				int result = ogg_stream_flush(&g->os, &og);  // THIS PROLLY SHOULD BE MORE EFFIECIENT
-
-				if(!result) break;
-
-				int ret = 0;
-
-				sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
-				if(sentbytes < 0) {
-					return sentbytes;
+				//printf("sslf: %d\n", g->SamplesSinceFlush );
+				//printf("lfs: %d\n", g->LastFlushSamples );
+				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (2048 * 16))) {
+					//printf("force flusing\n");
+					while(ogg_stream_flush(&g->os, &og) != 0) {
+						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
+						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
+						g->LastFlushSamples = ogg_page_granulepos(&og);
+						g->SamplesSinceFlush = 0;
+					}
+				} 
+				else { 
+					while(ogg_stream_pageout(&g->os, &og) != 0) {
+						//printf("normal flusing\n");
+						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
+						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
+						g->LastFlushSamples = ogg_page_granulepos(&og);
+						g->SamplesSinceFlush = 0;
+					}
 				}
-
-				sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
+     
 				if(sentbytes < 0) {
 					return sentbytes;
+				} else {
+					break;
 				}
 
 				if(ogg_page_eos(&og)) {
@@ -1941,25 +1952,29 @@ int initializeencoder(edcastGlobals *g) {
 		int encode_ret = 0;
 
 		if(!g->gOggBitQualFlag) {
-			encode_ret = vorbis_encode_setup_vbr(&g->vi,
-												 g->currentChannels,
-												 g->currentSamplerate,
-												 ((float) atof(g->gOggQuality) * (float) .1));
-			if(encode_ret) {
-				vorbis_info_clear(&g->vi);
-			}
+		// Clients FAIL with VBR streams that have silence	
+		// so we must manage all the damn time
+
+		switch(atoi(g->gOggQuality)){
+		case 0:	g->currentBitrate = 64;	break;
+		case 1:	g->currentBitrate = 80;		break;
+		case 2:	g->currentBitrate = 96;		break;
+		case 3:	g->currentBitrate = 112;		break;
+		case 4:	g->currentBitrate = 128;		break;
+		case 5:	g->currentBitrate = 160;		break;
+		case 6:	g->currentBitrate = 192;		break;
+		case 7:	g->currentBitrate = 224;		break;
+		case 8:	g->currentBitrate = 256;		break;
+		case 9:	g->currentBitrate = 320;		break;
+		case 10:	g->currentBitrate = 500;	break;		
+		default: g->currentBitrate = 160;	break;
+
 		}
-		else {
-			int maxbit = -1;
-			int minbit = -1;
 
-			if(g->currentBitrateMax > 0) {
-				maxbit = g->currentBitrateMax;
-			}
-
-			if(g->currentBitrateMin > 0) {
-				minbit = g->currentBitrateMin;
-			}
+		}
+		if (true) {
+		//else {
+		// of course the whole min and max bitrate thing doesn't really do any good
 
 			encode_ret = vorbis_encode_setup_managed(&g->vi,
 													 g->currentChannels,
@@ -2053,7 +2068,7 @@ int initializeencoder(edcastGlobals *g) {
 
 		}
 
-		sprintf(Streamed, "ENCODEDBY=edcast");
+		sprintf(Streamed, "ENCODEDBY=edcast2");
 		vorbis_comment_add(&vc, Streamed);
 		if(strlen(g->sourceDescription) > 0) {
 			sprintf(Streamed, "TRANSCODEDFROM=%s", g->sourceDescription);
@@ -2145,7 +2160,7 @@ int initializeencoder(edcastGlobals *g) {
 		if(!getLockedMetadataFlag(g)) {
 			FLAC__StreamMetadata_VorbisComment_Entry entry;
 			FLAC__StreamMetadata_VorbisComment_Entry entry3;
-			FLAC__metadata_object_vorbiscomment_entry_from_name_value_pair(&entry, "ENCODEDBY", "edcast");
+			FLAC__metadata_object_vorbiscomment_entry_from_name_value_pair(&entry, "ENCODEDBY", "edcast2");
 			FLAC__metadata_object_vorbiscomment_append_comment(g->flacMetadata, entry, true);
 			if(strlen(g->sourceDescription) > 0) {
 				FLAC__StreamMetadata_VorbisComment_Entry entry2;
@@ -3108,6 +3123,8 @@ int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels,
 	if(g == NULL) {
 		return 1;
 	}
+
+	g->SamplesSinceFlush += nsamples;
 
 	if(g->weareconnected) {
 	//	LogMessage(g,LOG_DEBUG, "%d Calling handle output", g->encoderNumber);

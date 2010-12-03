@@ -404,6 +404,8 @@ main (int argc, char *argv[])
 {
 
   printf("\nYour running edcast2_jack aka edcast_jack special edition!\n\n");
+  g.SamplesSinceFlush = 0;
+  g.LastFlushSamples = 0;
 
 	jack_thread_info_t thread_info;
 	int c;
