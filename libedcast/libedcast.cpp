@@ -1227,6 +1227,7 @@ int updateSongTitle(edcastGlobals *g, int forceURL) {
  */
 void icecast2SendMetadata(edcastGlobals *g)
 {
+/*
 #ifdef HAVE_VORBIS
 	pthread_mutex_lock(&(g->mutex));
 	vorbis_analysis_wrote(&g->vd, 0);
@@ -1234,6 +1235,7 @@ void icecast2SendMetadata(edcastGlobals *g)
 	initializeencoder(g);
 	pthread_mutex_unlock(&(g->mutex));
 #endif
+*/
 }
 
 
@@ -1658,7 +1660,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				//printf("sslf: %d\n", g->SamplesSinceFlush );
 				//printf("lfs: %d\n", g->LastFlushSamples );
 				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (2048 * 16))) {
-					//printf("force flusing\n");
+					printf("force flusing\n");
 					while(ogg_stream_flush(&g->os, &og) != 0) {
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
@@ -1668,7 +1670,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				} 
 				else { 
 					while(ogg_stream_pageout(&g->os, &og) != 0) {
-						//printf("normal flusing\n");
+						printf("normal flusing\n");
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
 						g->LastFlushSamples = ogg_page_granulepos(&og);
@@ -1950,7 +1952,7 @@ int initializeencoder(edcastGlobals *g) {
 		vorbis_info_init(&g->vi);
 
 		int encode_ret = 0;
-
+/*
 		if(!g->gOggBitQualFlag) {
 		// Clients FAIL with VBR streams that have silence	
 		// so we must manage all the damn time
@@ -1976,17 +1978,25 @@ int initializeencoder(edcastGlobals *g) {
 		//else {
 		// of course the whole min and max bitrate thing doesn't really do any good
 
-			encode_ret = vorbis_encode_setup_managed(&g->vi,
+			encode_ret = vorbis_encode_init(&g->vi,
 													 g->currentChannels,
 													 g->currentSamplerate,
+													 (g->currentBitrate - 0) * 1000,
 													 g->currentBitrate * 1000,
-													 g->currentBitrate * 1000,
-													 g->currentBitrate * 1000);
+													 (g->currentBitrate + 0) * 1000);
+*/
+printf("wtf: %d %d %d ::: %d", g->currentChannels, g->currentSamplerate,  (g->currentBitrate * 1000), encode_ret );
+
+		encode_ret = vorbis_encode_setup_vbr(&g->vi,
+												 g->currentChannels,
+												 g->currentSamplerate,
+												 ((float) atof(g->gOggQuality) * (float) .1));
+
 
 			if(encode_ret) {
 				vorbis_info_clear(&g->vi);
 			}
-		}
+		//}
 
 		if(encode_ret == OV_EIMPL) {
 			LogMessage(g,LOG_ERROR, "Sorry, but this vorbis mode is not supported currently...");
@@ -2191,6 +2201,7 @@ int initializeencoder(edcastGlobals *g) {
 
 			LogMessage(g,LOG_ERROR, "Error Initializing FLAC");
 			return 0;
+
 		}
 #endif
 	}
@@ -3337,6 +3348,7 @@ void LogMessage(edcastGlobals *g, int type, char *source, int line, char *fmt, .
 	switch (type) {
 		case LM_ERROR:
 			strcpy(errortype, "Error");
+
 			break;
 		case LM_INFO:
 			strcpy(errortype, "Info");
