@@ -1660,7 +1660,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				//printf("sslf: %d\n", g->SamplesSinceFlush );
 				//printf("lfs: %d\n", g->LastFlushSamples );
 				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (2048 * 16))) {
-					printf("force flusing\n");
+					//printf("force flusing\n");
 					while(ogg_stream_flush(&g->os, &og) != 0) {
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
@@ -1670,7 +1670,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				} 
 				else { 
 					while(ogg_stream_pageout(&g->os, &og) != 0) {
-						printf("normal flusing\n");
+						//printf("normal flusing\n");
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
 						g->LastFlushSamples = ogg_page_granulepos(&og);
@@ -1923,6 +1923,7 @@ int initializeencoder(edcastGlobals *g) {
 			if(g->serverStatusCallback) {
 				g->serverStatusCallback(g, (void *) "Invalid AAC+ settings");
 			}
+
 
 			LogMessage(g,LOG_ERROR, "Invalid AAC+ settings");
 			return 0;
