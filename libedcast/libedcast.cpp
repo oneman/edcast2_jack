@@ -1,7 +1,7 @@
 #define HAVE_FLAC TRUE
 
 /* it doesn't detect I got flac atleast on my system -drr */
-
+#include <math.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1659,8 +1659,8 @@ int ogg_encode_dataout(edcastGlobals *g)
 			while(!eos) {
 				//printf("sslf: %d\n", g->SamplesSinceFlush );
 				//printf("lfs: %d\n", g->LastFlushSamples );
-				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (2048 * 16))) {
-					//printf("force flusing\n");
+				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (4096))) {
+					printf("force flusing\n");
 					while(ogg_stream_flush(&g->os, &og) != 0) {
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
@@ -1670,7 +1670,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				} 
 				else { 
 					while(ogg_stream_pageout(&g->os, &og) != 0) {
-						//printf("normal flusing\n");
+						printf("normal flusing\n");
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
 						g->LastFlushSamples = ogg_page_granulepos(&og);
@@ -2487,24 +2487,38 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 
 			int32_samples = (INT32 *) malloc(numsamples * 2 * sizeof(INT32));
 
+			int bitshifter = 0;
 			int samplecount = 0;
-      float sample_multiplier;
+    //  float sample_multiplier;
+			double scaled_value ;
 
-      if (g->flacBitDepth == 24) {
+   /*   if (g->flacBitDepth == 24) {
 		    sample_multiplier = 8388607.0;
       } else {
 		    sample_multiplier = 32767.0;
       }
+	*/
+
+      if (g->flacBitDepth == 24) {
+		    bitshifter = 8;
+      } else {
+		    bitshifter = 16;
+      }
 
 			if(g->currentChannels == 1) {
 				for(int i = 0; i < numsamples * 2; i = i + 2) {
-					int32_samples[samplecount] = (INT32) (samples[i] * sample_multiplier);
+					scaled_value = (samples[i] * (8.0 * 0x10000000));
+					int32_samples[i] = (INT32) (lrint (scaled_value) >> bitshifter) ;
 					samplecount++;
 				}
 			}
 			else {
+
+
+
 				for(int i = 0; i < numsamples * 2; i++) {
-					int32_samples[i] = (INT32) (samples[i] * sample_multiplier);
+					scaled_value = (samples[i] * (8.0 * 0x10000000));
+					int32_samples[i] = (INT32) (lrint (scaled_value) >> bitshifter) ;
 					samplecount++;
 				}
 			}
@@ -3351,6 +3365,8 @@ void LogMessage(edcastGlobals *g, int type, char *source, int line, char *fmt, .
 			strcpy(errortype, "Error");
 
 			break;
+
+
 		case LM_INFO:
 			strcpy(errortype, "Info");
 			break;
