@@ -2307,8 +2307,8 @@ int do_encoding(edcastGlobals *g, float *lsamples,  float *rsamples, int numsamp
 			}
 		*/	
 			
-		memcpy((char *)&buffer[0][0], (char *)lsamples, numsamples * 4);	
-		memcpy((char *)&buffer[1][0], (char *)rsamples, numsamples * 4);		
+		memcpy(&buffer[0][0], lsamples, numsamples * 4);	
+		memcpy(&buffer[1][0], rsamples, numsamples * 4);		
 	
 			//LogMessage(g,LOG_DEBUG, "vorbis_analysis_wrote...");
 
