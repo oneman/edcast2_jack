@@ -1657,7 +1657,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 			while(!eos) {
 				//printf("sslf: %d\n", g->SamplesSinceFlush );
 				//printf("lfs: %d\n", g->LastFlushSamples );
-				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (4096))) {
+				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (4096 * 4))) {
 					//printf("force flusing\n");
 					while(ogg_stream_flush(&g->os, &og) != 0) {
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
