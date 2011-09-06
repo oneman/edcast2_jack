@@ -1984,7 +1984,7 @@ int initializeencoder(edcastGlobals *g) {
 													 g->currentBitrate * 1000,
 													 (g->currentBitrate + 0) * 1000);
 */
-printf("wtf: %d %d %d ::: %d", g->currentChannels, g->currentSamplerate,  (g->currentBitrate * 1000), encode_ret );
+//printf("wtf: %d %d %d ::: %d", g->currentChannels, g->currentSamplerate,  (g->currentBitrate * 1000), encode_ret );
 
 		encode_ret = vorbis_encode_setup_vbr(&g->vi,
 												 g->currentChannels,
