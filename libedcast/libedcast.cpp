@@ -28,9 +28,7 @@
 #ifdef HAVE_FAAC
 #include <faac.h>
 #endif
-#ifndef LAME_MAXMP3BUFFER
-#define LAME_MAXMP3BUFFER	16384
-#endif
+
 #define GUINT16_TO_LE(val)		((unsigned short) (val))
 #define GUINT32_TO_LE(val)		((unsigned int) (val))
 #define GUINT16_FROM_LE(val)	(GUINT16_TO_LE(val))
@@ -56,11 +54,7 @@ long	dwDataBlockPos = 0;
 long	TotalWritten = 0;
 
 
-#ifdef WIN32
-#define INT32	__int32
-#else
-#define INT32	int
-#endif
+
 
 #define MAX_ENCODERS 10
 
@@ -951,6 +945,10 @@ void initializeGlobals(edcastGlobals *g) {
 	memset(g->WindowsRecDevice, '\000', sizeof(g->WindowsRecDevice));
 	g->LAMEJointStereoFlag = 1;
 
+
+
+
+
 #ifndef WIN32
 #ifdef HAVE_LAME
 
@@ -1660,7 +1658,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				//printf("sslf: %d\n", g->SamplesSinceFlush );
 				//printf("lfs: %d\n", g->LastFlushSamples );
 				if ((g->SamplesSinceFlush + g->LastFlushSamples) >= (g->LastFlushSamples + (4096))) {
-					printf("force flusing\n");
+					//printf("force flusing\n");
 					while(ogg_stream_flush(&g->os, &og) != 0) {
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
@@ -1670,7 +1668,7 @@ int ogg_encode_dataout(edcastGlobals *g)
 				} 
 				else { 
 					while(ogg_stream_pageout(&g->os, &og) != 0) {
-						printf("normal flusing\n");
+						//printf("normal flusing\n");
 						sentbytes = sendToServer(g, g->gSCSocket, (char_t *) og.header, og.header_len, CODEC_TYPE);
 						sentbytes += sendToServer(g, g->gSCSocket, (char_t *) og.body, og.body_len, CODEC_TYPE);
 						g->LastFlushSamples = ogg_page_granulepos(&og);
@@ -2242,12 +2240,12 @@ void ExtractFromFIFO(float *destination, float *source, int numsamples) {
 	}
 }
 
-int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
+int do_encoding(edcastGlobals *g, float *lsamples,  float *rsamples, int numsamples, int nch) {
 	g->gCurrentlyEncoding = 1;
 
 	int				s;
 	int				count = 0;
-	unsigned char	mp3buffer[LAME_MAXMP3BUFFER];
+	//unsigned char	mp3buffer[LAME_MAXMP3BUFFER];
 	int				imp3;
 	short int		*int_samples;
 	int				eos = 0;
@@ -2263,7 +2261,7 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 		long	leftMax = 0;
 		long	rightMax = 0;
 		int		samplecounter = 0;
-
+		/*
 		LogMessage(g,LOG_DEBUG, "determining left/right max...");
 		for(int i = 0; i < numsamples * 2; i = i + 2) {
 			leftMax += abs((int) ((float) samples[i] * 32767.f));
@@ -2277,7 +2275,7 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 				g->VUCallback(leftMax, rightMax);
 			}
 		}
-
+		*/
 		if(g->gOggFlag)
 		{
 #ifdef HAVE_VORBIS
@@ -2291,14 +2289,14 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 				icecast2SendMetadata(g);
 			}
 
-			LogMessage(g,LOG_DEBUG, "vorbis_analysis_buffer...");
+			//LogMessage(g,LOG_DEBUG, "vorbis_analysis_buffer...");
 
 			float	**buffer = vorbis_analysis_buffer(&g->vd, numsamples);
 			int		samplecount = 0;
 			int		i;
 
 			samplecounter = 0;
-
+		/*
 			for(i = 0; i < numsamples * 2; i = i + 2) {
 				buffer[0][samplecounter] = samples[i];
 				if(g->currentChannels == 2) {
@@ -2307,15 +2305,20 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 
 				samplecounter++;
 			}
-			LogMessage(g,LOG_DEBUG, "vorbis_analysis_wrote...");
+		*/	
+			
+		memcpy((char *)&buffer[0][0], (char *)lsamples, numsamples * 4);	
+		memcpy((char *)&buffer[1][0], (char *)rsamples, numsamples * 4);		
+	
+			//LogMessage(g,LOG_DEBUG, "vorbis_analysis_wrote...");
 
 			ret = vorbis_analysis_wrote(&g->vd, numsamples);
 
 			pthread_mutex_lock(&(g->mutex));
-			LogMessage(g,LOG_DEBUG, "ogg_encode_dataout...");
+			//LogMessage(g,LOG_DEBUG, "ogg_encode_dataout...");
 			/* Stream out what we just prepared for Vorbis... */
 			sentbytes = ogg_encode_dataout(g);
-			LogMessage(g,LOG_DEBUG, "done ogg_ecndoe_dataout...");
+			//LogMessage(g,LOG_DEBUG, "done ogg_ecndoe_dataout...");
 			pthread_mutex_unlock(&(g->mutex));
 #endif
 		}
@@ -2422,7 +2425,7 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 		if(g->gLAMEFlag)
 		{
 #ifdef HAVE_LAME
-			/* Lame encoding is simple, we are passing it interleaved samples */
+			/* Lame encoding is simple, we are passing it interleaved samples 
 			int_samples = (short int *) malloc(numsamples * 2 * sizeof(short int));
 
 			int samplecount = 0;
@@ -2439,25 +2442,29 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 					samplecount++;
 				}
 			}
+			
 
+			sample_t	*samples_left;
+			sample_t	*samples_right;
 
-			float	*samples_left;
-			float	*samples_right;
-
-			samples_left = (float *) malloc(numsamples * (sizeof(float)));
-			samples_right = (float *) malloc(numsamples * (sizeof(float)));
-
+			samples_left = (sample_t *) malloc(numsamples * (sizeof(float)));
+			samples_right = (sample_t *) malloc(numsamples * (sizeof(sample_t)));
+			*/
+			
+			// lame sucks, not even actually float
+			
 			for(int i = 0; i < numsamples; i++) {
-				samples_left[i] = samples[2 * i] * 32767.0;
-				samples_right[i] = samples[2 * i + 1] * 32767.0;
+				g->samples_left[i] = lsamples[i] * 32767.0;
+				g->samples_right[i] = rsamples[i] * 32767.0;
 			}
-
+			
 			imp3 = lame_encode_buffer_float(g->gf,
-											(float *) samples_left,
-											(float *) samples_right,
+											g->samples_left,
+											g->samples_right,
 											numsamples,
-											mp3buffer,
-											sizeof(mp3buffer));
+											g->mp3buffer,
+											LAME_MAXMP3BUFFER);
+			/*
 			if(samples_left) {
 				free(samples_left);
 			}
@@ -2465,10 +2472,10 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 			if(samples_right) {
 				free(samples_right);
 			}
-
-			if(int_samples) {
-				free(int_samples);
-			}
+			*/
+			//if(int_samples) {
+			//	free(int_samples);
+			//}
 
 			if(imp3 == -1) {
 				LogMessage(g,LOG_ERROR, "mp3 buffer is not big enough!");
@@ -2476,16 +2483,16 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 			}
 
 			/* Send out the encoded buffer */
-			sentbytes = sendToServer(g, g->gSCSocket, (char *) mp3buffer, imp3, CODEC_TYPE);
+			sentbytes = sendToServer(g, g->gSCSocket, (char *) g->mp3buffer, imp3, CODEC_TYPE);
 #endif
 		}
 
 		if(g->gFLACFlag)
 		{
 #ifdef HAVE_FLAC
-			INT32		*int32_samples;
+			//INT32		*int32_samples;
 
-			int32_samples = (INT32 *) malloc(numsamples * 2 * sizeof(INT32));
+			//int32_samples = (INT32 *) malloc(numsamples * 2 * sizeof(INT32));
 
 			int bitshifter = 0;
 			int samplecount = 0;
@@ -2504,7 +2511,7 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
       } else {
 		    bitshifter = 16;
       }
-
+/*
 			if(g->currentChannels == 1) {
 				for(int i = 0; i < numsamples * 2; i = i + 2) {
 					scaled_value = (samples[i] * (8.0 * 0x10000000));
@@ -2513,21 +2520,27 @@ int do_encoding(edcastGlobals *g, float *samples, int numsamples, int nch) {
 				}
 			}
 			else {
+*/
 
+				int ix = 0;
+				for(int i = 0; i < numsamples; i++) {
+					
+					scaled_value = (lsamples[i] * (8.0 * 0x10000000));
+					g->int32_samples[ix] = (int) (lrint (scaled_value) >> bitshifter) ;
+					ix++;
+					
+					scaled_value = (rsamples[i] * (8.0 * 0x10000000));
+					g->int32_samples[ix] = (int) (lrint (scaled_value) >> bitshifter) ;
+					ix++;
 
-
-				for(int i = 0; i < numsamples * 2; i++) {
-					scaled_value = (samples[i] * (8.0 * 0x10000000));
-					int32_samples[i] = (INT32) (lrint (scaled_value) >> bitshifter) ;
-					samplecount++;
 				}
-			}
+			//}
 
-			FLAC__stream_encoder_process_interleaved(g->flacEncoder, int32_samples, numsamples);
+			FLAC__stream_encoder_process_interleaved(g->flacEncoder, g->int32_samples, numsamples);
 
-			if(int32_samples) {
-				free(int32_samples);
-			}
+			//if(int32_samples) {
+			//	free(int32_samples);
+			//}
 
 			if(g->flacFailure) {
 				sentbytes = 0;
@@ -3130,7 +3143,7 @@ void config_write(edcastGlobals *g) {
     Input is in interleaved float samples
  =======================================================================================================================
  */
-int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels, int in_samplerate) {
+int handle_output(edcastGlobals *g, float *lsamples, float *rsamples, int nsamples, int nchannels, int in_samplerate) {
 	int			ret = 1;
 	static int	current_insamplerate = 0;
 	static int	current_nchannels = 0;
@@ -3142,9 +3155,9 @@ int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels,
 
 	nchannels = 2;
 
-	float	*samples_resampled = NULL;
-	short	*samples_resampled_int = NULL;
-	float	*samples_rechannel = NULL;
+	//float	*samples_resampled = NULL;
+	//short	*samples_resampled_int = NULL;
+	//float	*samples_rechannel = NULL;
 
 	if(g == NULL) {
 		return 1;
@@ -3156,6 +3169,7 @@ int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels,
 	//	LogMessage(g,LOG_DEBUG, "%d Calling handle output", g->encoderNumber);
 		out_samplerate = getCurrentSamplerate(g);
 		out_nch = getCurrentChannels(g);
+/*
 		if (g->gSaveFile) {
 			if(g->gSaveAsWAV) {
 				int			sizeofData = nsamples * nchannels * sizeof(short int);
@@ -3177,7 +3191,7 @@ int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels,
 				 * g->written += sizeofData;
 				 * ;
 				 * Write to WAV file
-				 */
+				 
 			}
 		}
 
@@ -3230,16 +3244,19 @@ int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels,
 		LogMessage(g,LOG_DEBUG, "In samplerate = %d, Out = %d", in_samplerate, out_samplerate);
 		samplePtr = samples_rechannel;
 		
+		
+		*/
 			LogMessage(g,LOG_DEBUG, "do_encoding start");
-			ret = do_encoding(g, (float *) samples_rechannel, nsamples, nchannels);
+			ret = do_encoding(g, lsamples, rsamples, nsamples, nchannels);
 			LogMessage(g,LOG_DEBUG, "do_encoding end (%d)", ret);
 		
-
+	/*
 		if(samples_rechannel) {
 			free(samples_rechannel);
 			samples_rechannel = NULL;
 		}
 		LogMessage(g,LOG_DEBUG, "%d Calling handle output - Ret = %d", g->encoderNumber, ret);
+	*/
 	}
 
 	return ret;
@@ -3346,7 +3363,8 @@ void LogMessage(edcastGlobals *g, int type, char *source, int line, char *fmt, .
 #else
 	p1 = strrchr(source, '/');
 #endif
-
+	if (type <= g->gLogLevel) {
+	
 	if (p1) {
 		strcpy(sourceLine, p1+1);
 	}
@@ -3383,7 +3401,7 @@ void LogMessage(edcastGlobals *g, int type, char *source, int line, char *fmt, .
 	}
 
 
-	if (type <= g->gLogLevel) {
+
 		va_start(parms, fmt);
 		char_t	logfile[1024] = "";
 

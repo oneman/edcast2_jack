@@ -83,7 +83,7 @@ extern "C" {
 // For skin stuff
 #define WINDOW_WIDTH		276
 #define WINDOW_HEIGHT		150
-
+//typedef float sample_t;
 #ifndef FALSE
 #define FALSE false
 #endif
@@ -173,6 +173,11 @@ static struct wavhead   wav_header;
 
 // Global variables....gotta love em... (for shizzle... -drr)
 typedef struct {
+	int		*int32_samples;
+	unsigned char	*mp3buffer;
+			float	*samples_left;
+			float	*samples_right;
+			
 	ogg_int64_t		LastFlushSamples;
 	int		SamplesSinceFlush;
 	int		flacBitDepth;
@@ -376,7 +381,7 @@ void config_read(edcastGlobals *g);
 void config_write(edcastGlobals *g);
 int connectToServer(edcastGlobals *g);
 int disconnectFromServer(edcastGlobals *g);
-int do_encoding(edcastGlobals *g, short int *samples, int numsamples, int nch);
+int do_encoding(edcastGlobals *g, float *lsamples, float *rsamples, int numsamples, int nch);
 void URLize(char_t *input, char_t *output, int inputlen, int outputlen);
 int updateSongTitle(edcastGlobals *g, int forceURL);
 int setCurrentSongTitleURL(edcastGlobals *g, char_t *song);
@@ -395,7 +400,7 @@ int     getCurrentBitrate(edcastGlobals *g);
 int     getCurrentChannels(edcastGlobals *g);
 int  ocConvertAudio(edcastGlobals *g,float *in_samples, float *out_samples, int num_in_samples, int num_out_samples);
 int initializeResampler(edcastGlobals *g,long inSampleRate, long inNCH);
-int handle_output(edcastGlobals *g, float *samples, int nsamples, int nchannels, int in_samplerate);
+int handle_output(edcastGlobals *g, float *lsamples, float *rsamples, int nsamples, int nchannels, int in_samplerate);
 void setServerStatusCallback(edcastGlobals *g,void (*pCallback)(void *,void *));
 void setGeneralStatusCallback(edcastGlobals *g, void (*pCallback)(void *,void *));
 void setWriteBytesCallback(edcastGlobals *g, void (*pCallback)(void *,void *));

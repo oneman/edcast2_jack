@@ -69,7 +69,7 @@ jack_nframes_t nframes;
 const size_t sample_size = sizeof(jack_default_audio_sample_t);
 
 /* Synchronization between process thread and edcast thread. */
-#define DEFAULT_RB_SIZE 16384*30		/* ringbuffer size in frames */
+#define DEFAULT_RB_SIZE 1000000		/* ringbuffer size in bytes */
 jack_ringbuffer_t **rb;
 pthread_mutex_t edcast_thread_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
@@ -181,7 +181,7 @@ edcast_thread (void *arg)
 	size_t bytes_per_frame = samples_per_frame * sample_size;
 	float *framebuf_r = (float *)malloc (bytes_per_frame);
 	float *framebuf_l = (float *)malloc (bytes_per_frame);
-	float *framebuf = (float *)malloc (bytes_per_frame*2);
+	//float *framebuf = (float *)malloc (bytes_per_frame*2);
 
 	pthread_setcanceltype (PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 	pthread_mutex_lock (&edcast_thread_lock);
@@ -200,30 +200,34 @@ edcast_thread (void *arg)
 		       (jack_ringbuffer_read_space (rb[0]) >= bytes_per_frame)) {
 
 			jack_ringbuffer_read (rb[0], (char *)framebuf_r, bytes_per_frame);
-			if (currentChannels == 2) {
+			//if (currentChannels == 2) {
 				jack_ringbuffer_read (rb[1], (char *)framebuf_l, bytes_per_frame);
-			}
+			//}
+			/*
 			int samplecounter = 0;
 			for (int i=0;i<samples_per_frame;i++) {
 				framebuf[samplecounter] = framebuf_r[i];
 				samplecounter++;
-				if (currentChannels == 2) {
+				//if (currentChannels == 2) {
 					framebuf[samplecounter] = framebuf_l[i];
 					samplecounter++;
-				}
+				//}
 			}
-	
-			handle_output(&g, (float *)framebuf, samples_per_frame, currentChannels, currentSamplerate);
+			*/
+			handle_output(&g, framebuf_l, framebuf_r, samples_per_frame, currentChannels, currentSamplerate);
 			
 		}
 
 		/* wait until process() signals more data */
-		pthread_cond_wait (&data_ready, &edcast_thread_lock);
+		//pthread_cond_wait (&data_ready, &edcast_thread_lock);
+		
+		usleep(74720);
+		
 	}
 
  done:
 	pthread_mutex_unlock (&edcast_thread_lock);
-	free (framebuf);
+	//free (framebuf);
 	free (framebuf_l);
 	free (framebuf_r);
 	return 0;
@@ -340,10 +344,13 @@ setup_ports (int sources, char *source_names[], jack_thread_info_t *info)
 	rb =(jack_ringbuffer_t **)malloc(sizeof (jack_ringbuffer_t *) * (sources));
 	for(i=0;i<sources;i++){
 		rb[i]=jack_ringbuffer_create(info->rb_size);
+		if (jack_ringbuffer_mlock(rb[i])) {
+			fprintf (stderr, "Ringbuffer mlock failure\n");
+		}
 	}
 
 	for (i = 0; i < nports; i++) {
-		char name[64];
+		char name[256];
 
 		sprintf (name, "in_%d", i+1);
 
@@ -407,6 +414,10 @@ main (int argc, char *argv[])
   g.SamplesSinceFlush = 0;
   g.LastFlushSamples = 0;
 
+
+
+
+
 	jack_thread_info_t thread_info;
 	int c;
 	char	jackClientName[1024] = "";
@@ -438,6 +449,13 @@ main (int argc, char *argv[])
 
 
 	memset(&g, '\000', sizeof(g));
+	
+	
+	g.samples_left = (float *) malloc(8192 * (sizeof(float)));
+	g.samples_right = (float *) malloc(8192 * (sizeof(float)));
+
+	g.mp3buffer = (unsigned char *)calloc(1, LAME_MAXMP3BUFFER);
+	g.int32_samples = (int *)calloc(1, 32000 * 2 * sizeof(int));
 	
 	setServerStatusCallback(&g, serverStatusCallback);
 	setGeneralStatusCallback(&g, generalStatusCallback);
