@@ -256,8 +256,7 @@ process (jack_nframes_t nframes, void *arg)
 
 		len = jack_ringbuffer_write_space (rb[chn]);
 		if (len >= to_write) {
-			len = jack_ringbuffer_write (rb[chn],
-			(char *)jack_port_get_buffer (ports[chn], nframes), to_write);
+			len = jack_ringbuffer_write (rb[chn], (char *)jack_port_get_buffer (ports[chn], nframes), to_write);
 			if (len < to_write) {
 				printf ("ringbuffer full *, tried to write %d, but wrote %d\n", to_write, len);
 				break;
@@ -274,10 +273,10 @@ process (jack_nframes_t nframes, void *arg)
 	 * here in the process() thread, but we don't need to signal
 	 * in that case, because the edcast thread will read all the
 	 * data queued before waiting again. */
-	if (pthread_mutex_trylock (&edcast_thread_lock) == 0) {
-	    pthread_cond_signal (&data_ready);
-	    pthread_mutex_unlock (&edcast_thread_lock);
-	}
+	//if (pthread_mutex_trylock (&edcast_thread_lock) == 0) {
+	//    pthread_cond_signal (&data_ready);
+	//    pthread_mutex_unlock (&edcast_thread_lock);
+	//}
 
 	return 0;
 }
