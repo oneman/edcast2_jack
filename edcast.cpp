@@ -171,6 +171,49 @@ edcast_reconnect_thread (void *arg)
 	return 0;
 }
 
+
+
+void check_port_connection(jack_thread_info_t *info) {
+
+	if ((jack_port_connected(ports[0])) && (jack_port_connected(ports[1]))) {
+		return;
+	}
+
+	char remote_port[256];
+	jack_port_t *port;
+
+
+	if (!(jack_port_connected(ports[0]))) {
+		sprintf(remote_port, "%sleft", portMatch);
+		port = jack_port_by_name (info->client, remote_port);
+		if (port) {
+			printf("Reconnecting to port %s\n", remote_port);
+			if (jack_connect (info->client, remote_port, jack_port_name(ports[0]))) {
+				fprintf (stderr, "cannot connect input port %s to %s\n", jack_port_name (ports[0]), remote_port);
+				jack_client_close (info->client);
+				exit (1);
+			}
+		}
+	}
+
+	if (!(jack_port_connected(ports[1]))) {
+		sprintf(remote_port, "%sright", portMatch);
+		port = jack_port_by_name (info->client, remote_port);
+		if (port) {
+			printf("Reconnecting to port %s\n", remote_port);
+			if (jack_connect (info->client, remote_port, jack_port_name(ports[1]))) {
+				fprintf (stderr, "cannot connect input port %s to %s\n", jack_port_name (ports[1]), remote_port);
+				jack_client_close (info->client);
+				exit (1);
+			}
+		}
+	}
+	
+
+}
+
+
+
 void *
 edcast_thread (void *arg)
 {
@@ -187,7 +230,7 @@ edcast_thread (void *arg)
 	pthread_mutex_lock (&edcast_thread_lock);
 
 	info->status = 0;
-
+	int portcheck_count = 0;
 	while (1) {
 
 /*
@@ -222,6 +265,13 @@ edcast_thread (void *arg)
 		//pthread_cond_wait (&data_ready, &edcast_thread_lock);
 		
 		usleep(74720);
+		
+		portcheck_count++;
+		
+		if (portcheck_count == 100 ) {
+			check_port_connection(info);
+			portcheck_count = 0;
+		}
 		
 	}
 
@@ -351,8 +401,12 @@ setup_ports (int sources, char *source_names[], jack_thread_info_t *info)
 	for (i = 0; i < nports; i++) {
 		char name[256];
 
-		sprintf (name, "in_%d", i+1);
-
+		if (i == 0) {
+			sprintf (name, "in_left");
+		}
+		if (i == 1) {
+			sprintf (name, "in_right");
+		}
 		if ((ports[i] = jack_port_register (info->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0)) == 0) {
 			fprintf (stderr, "cannot register input port \"%s\"!\n", name);
 			jack_client_close (info->client);
